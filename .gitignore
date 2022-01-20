@@ -2,3 +2,6 @@
 __pycache__/
 /datasets/
 /output/
+/data/output
+/data/pre_output
+/data/brain/output
