@@ -8,6 +8,8 @@ import tensorflow.keras as keras
 import tf2lib as tl
 import tf2gan as gan
 import tqdm
+from skimage.metrics import peak_signal_noise_ratio as psnr
+from skimage.metrics import structural_similarity as ssim
 
 import data
 import module
@@ -17,9 +19,9 @@ import module
 # =                                   param                                    =
 # ==============================================================================
 
-py.arg('--dataset', default='horse2zebra')
-py.arg('--datasets_dir', default='datasets')
-py.arg('--load_size', type=int, default=286)  # load image to this size
+py.arg('--dataset', default='brain')
+py.arg('--datasets_dir', default='/home/Alexandrite/smin/cycle_git/data')
+py.arg('--load_size', type=int, default=256)  # load image to this size
 py.arg('--crop_size', type=int, default=256)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
 py.arg('--epochs', type=int, default=200)
@@ -32,10 +34,12 @@ py.arg('--gradient_penalty_weight', type=float, default=10.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
+py.arg('--output_date', default='0110')
+py.arg('--dir_num', default='1')
 args = py.args()
 
 # output_dir
-output_dir = py.join('output', args.dataset)
+output_dir = py.join(args.datasets_dir, 'output', args.output_date, args.dir_num)
 py.mkdir(output_dir)
 
 # save settings
@@ -46,17 +50,22 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
-A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
-B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
+A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
+B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
-A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, repeat=True)
+A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'db_valid'), '*.png')
+B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'noisy'), '*.png')
 
+
+B_img_paths_test.sort()
+
+
+
+A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
 # ==============================================================================
 # =                                   models                                   =
@@ -190,6 +199,7 @@ test_iter = iter(A_B_dataset_test)
 sample_dir = py.join(output_dir, 'samples_training')
 py.mkdir(sample_dir)
 
+
 # main loop
 with train_summary_writer.as_default():
     for ep in tqdm.trange(args.epochs, desc='Epoch Loop'):
@@ -198,10 +208,11 @@ with train_summary_writer.as_default():
 
         # update epoch counter
         ep_cnt.assign_add(1)
-
         # train for an epoch
+
         for A, B in tqdm.tqdm(A_B_dataset, desc='Inner Epoch Loop', total=len_dataset):
             G_loss_dict, D_loss_dict = train_step(A, B)
+
 
             # # summary
             tl.summary(G_loss_dict, step=G_optimizer.iterations, name='G_losses')
@@ -211,9 +222,29 @@ with train_summary_writer.as_default():
             # sample
             if G_optimizer.iterations.numpy() % 100 == 0:
                 A, B = next(test_iter)
+                if A is None or B is None :
+                    continue
+
                 A2B, B2A, A2B2A, B2A2B = sample(A, B)
                 img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
                 im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
+
+                # psnr ssim 계산
+
+                tmp_A = (A + 1)*0.5*255
+                tmp_B2A = (B2A + 1)*0.5*255
+                #img_psnr = psnr(tmp_A, tmp_B2A,  data_range=255.0)
+                #img_ssim = ssim(tmp_A, tmp_B2A,  data_range=255.0)
+
+                im1 = tf.image.convert_image_dtype(tmp_A, tf.float32)
+                im2 = tf.image.convert_image_dtype(tmp_B2A, tf.float32)
+                img_psnr = tf.image.psnr(im1, im2, max_val=255.0)
+                img_ssim = tf.image.ssim(im1, im2, max_val=255.0)
+                print("psnr: ", img_psnr)
+                print("ssim: ", img_ssim)
+                tf.print("gloss: ", G_loss_dict)
+                tf.print("dloss: ", D_loss_dict)
+
 
         # save checkpoint
         checkpoint.save(ep)

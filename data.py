@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 import tf2lib as tl
+import os
+from PIL import Image
 
 
 def make_dataset(img_paths, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=True, repeat=1):
@@ -75,3 +77,17 @@ class ItemPool:
                 else:
                     out_items.append(in_item)
         return tf.stack(out_items, axis=0)
+
+
+
+def image_read(path):
+    output = []
+    if ('.tif' not in path) and ('.png' not in path):
+        tif_list = sorted(os.listdir(path))
+        for name in tif_list:
+            im = Image.open(path+"/"+name)
+            output.append(np.array(im, dtype=np.float32))
+    else:
+        im = Image.open(path)
+        output = np.array(im, dtype=np.float32)
+    return output
