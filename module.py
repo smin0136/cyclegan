@@ -108,6 +108,29 @@ def ConvDiscriminator(input_shape=(256, 256, 3),
     return keras.Model(inputs=inputs, outputs=h)
 
 
+def Extractor(input_shape=(256, 256, 3),
+                    output_channels=3,
+                    dim=64,
+                    n_blocks=20,
+                    norm='instance_norm'):
+    Norm = _get_norm_layer(norm)
+
+    h = inputs = keras.Input(shape=input_shape)
+
+    # 1
+    h = keras.layers.Conv2D(dim, (3,3), (1,1), activation=tf.nn.leaky_relu, padding="same", use_bias=True)(h)
+
+    # 2
+    for _ in range(n_blocks-2):
+        h = keras.layers.Conv2D(dim, (3,3), (1,1), activation=None, padding="same", use_bias=True)(h)
+        h = Norm()(h)
+        h = tf.nn.leaky_relu(h)
+
+    # 3
+    h = keras.layers.Conv2D(output_channels, (3,3), (1,1), activation=None, padding="same", use_bias=True)(h)
+
+    return keras.Model(inputs=inputs, outputs=h)
+
 # ==============================================================================
 # =                          learning rate scheduler                           =
 # ==============================================================================
