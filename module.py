@@ -799,6 +799,19 @@ class ConvDiscriminator_cont(keras.Model):
 
         return x, h
 
+class Projection_head(keras.Model):
+    def __init__(self, projection_size=64):
+        super(Projection_head, self).__init__()
+        self.fcn = []
+        self.fcn.append(layers.Dense(projection_size*2, activation=tf.nn.leaky_relu))
+        self.fcn.append(layers.Dense(projection_size, activation=None))
+
+    def __call__(self, inputs, training=True):
+        out = 0.0
+        for l in self.fcn:
+            out = l(out)
+        return out
+
 class Extractor(keras.Model):
     def __init__(self, output_channels=3, dim=64, n_blocks=3, norm='instance_norm'):
         super(Extractor, self).__init__()

@@ -113,3 +113,21 @@ def gradient_penalty(f, real, fake, mode):
         gp = _gradient_penalty(f, real, fake)
 
     return gp
+
+class SupervisedContrastiveLoss(tf.keras.losses.Loss):
+    def __init__(self, temperature=1, batch_size=None, name=None):
+        super(SupervisedContrastiveLoss, self).__init__(name=name)
+        assert(batch_size is not None)
+        self.temperature = temperature
+        self.p = tf.ones([batch_size,], dtype=tf.float32)
+        self.n = tf.zeros([batch_size,], dtype=tf.float32)
+    def __call__(self, pos, neg, sample_weight=None):
+        # Normalize feature vectors
+        features = tf.concat([pos, neg], axis=0)
+        features_norm = tf.math.l2_normalize(features, axis=1)
+        # Compute logits
+        logits = tf.divide(tf.matmul(features_norm, tf.transpose(features_norm)),
+                self.temperature,
+        )
+        labels = tf.concat([self.p, self.n], axis=0)
+        return tfa.losses.npairs_loss(tf.squeeze(labels), logits)
