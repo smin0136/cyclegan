@@ -15,7 +15,7 @@ import module
 # ==============================================================================
 from data import image_read
 
-py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/pre_output/0123/2')
+py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/pre_output/0202/2')
 py.arg('--batch_size', type=int, default=1)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
@@ -42,25 +42,38 @@ B_dataset_test = data.make_dataset(B_img_paths_test, 1, args.load_size, args.cro
 A_dataset_test = np.array(image_read(py.join('/home/Alexandrite/smin/cycle_git/data', 'knees', 'val_clean')), dtype=np.float32)
 
 # model
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
-
+#G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+#G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+#H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
+G = module.Gen_with_adain()
+H = module.Extractor()
 
 # resotre
-tl.Checkpoint(dict(G_A2B=G_A2B, G_B2A=G_B2A, H=H), py.join(args.experiment_dir, 'checkpoints')).restore()
+tl.Checkpoint(dict(G=G, H=H), py.join(args.experiment_dir, 'checkpoints')).restore()
 
-
+"""
 @tf.function
 def sample_A2B(A):
     A2B = G_A2B(A, training=False)
     A2B2A = G_B2A(A2B, training=False)
     return A2B, A2B2A
+    
+@tf.function
+def sample_B2A(B):
+    B2A = tf.clip_by_value(G_B2A(B, training=False), -1.0, 1.0)
+    H2A = tf.clip_by_value(B - H(B, training=False), -1.0, 1.0)
+    GnH = tf.clip_by_value(0.5*B2A + 0.5*H2A, -1.0, 1.0)
+
+    return B2A, H2A, GnH
+"""
+tf.random.set_seed(5)
+z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
+z = z*2 - 1
 
 
 @tf.function
 def sample_B2A(B):
-    B2A = tf.clip_by_value(G_B2A(B, training=False), -1.0, 1.0)
+    B2A = tf.clip_by_value(G(B, z=z, training=False), -1.0, 1.0)
     H2A = tf.clip_by_value(B - H(B, training=False), -1.0, 1.0)
     GnH = tf.clip_by_value(0.5*B2A + 0.5*H2A, -1.0, 1.0)
 

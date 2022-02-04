@@ -90,6 +90,7 @@ H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.be
 # =                                 train step                                 =
 # ==============================================================================
 
+
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:

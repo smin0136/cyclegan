@@ -72,13 +72,12 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G = module.Gen_with_adain()
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator_cont()
+D_B = module.ConvDiscriminator_cont()
 
-H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
+H = module.Extractor()
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
@@ -94,31 +93,37 @@ H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.be
 
 
 #pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0123', '2')
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0202', '2')
 #py.mkdir(output_dir)
 
 
 ############## 만약 pre training 이 H 학습시킨거면 H추가해야함#####################################################
-tl.Checkpoint(dict(G_A2B=G_A2B, G_B2A=G_B2A, H=H), py.join(pre_output_dir, 'checkpoints')).restore()
+tl.Checkpoint(dict(G=G, H=H), py.join(pre_output_dir, 'checkpoints')).restore()
+
 
 
 # ==============================================================================
 # =                                 train step                                 =
 # ==============================================================================
 
+tf.random.set_seed(5)
+z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
+
+
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        A2B = G_A2B(A, training=True)
-        B2A = G_B2A(B, training=True)
+        A2B = G(A, training=True)
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
+        B2A = G(B, z=z,training=True)
         #############################  B-B2A <-> H(B)
-        A2B2A = G_B2A(A2B, training=True)
-        B2A2B = G_A2B(B2A, training=True)
-        A2A = G_B2A(A, training=True)
-        B2B = G_A2B(B, training=True)
+        A2B2A = G(A2B,  z=z,training=True)
+        B2A2B = G(B2A, training=True)
+        A2A = G(A,  z=z,training=True)
+        B2B = G(B, training=True)
 
-        A2B_d_logits = D_B(A2B, training=True)
-        B2A_d_logits = D_A(B2A, training=True)
+        A2B_d_logits, _ = D_B(A2B, training=True)
+        B2A_d_logits, _ = D_A(B2A, training=True)
 
         A2B_g_loss = g_loss_fn(A2B_d_logits)
         B2A_g_loss = g_loss_fn(B2A_d_logits)
@@ -130,14 +135,14 @@ def train_G(A, B):
         ### bypass loss
         clean_H = B - H(B, training=False)
         noisy_H = A + H(B, training=False)
-        y_hat_j = G_B2A(noisy_H, training=True)
+        y_hat_j = G(noisy_H,z=z, training=True)
 
         bypass_loss = tf.reduce_mean(tf.abs(B2A - clean_H)) + tf.reduce_mean(tf.abs(A - y_hat_j))
 
         G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss + bypass_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
 
-    G_grad = t.gradient(G_loss, G_A2B.trainable_variables + G_B2A.trainable_variables)
-    G_optimizer.apply_gradients(zip(G_grad, G_A2B.trainable_variables + G_B2A.trainable_variables))
+    G_grad = t.gradient(G_loss, G.trainable_variables)
+    G_optimizer.apply_gradients(zip(G_grad, G.trainable_variables))
 
     return A2B, B2A, {'A2B_g_loss': A2B_g_loss,
                       'B2A_g_loss': B2A_g_loss,
@@ -151,21 +156,41 @@ def train_G(A, B):
 @tf.function
 def train_D(A, B, A2B, B2A):
     with tf.GradientTape() as t:
-        A_d_logits = D_A(A, training=True)
-        B2A_d_logits = D_A(B2A, training=True)
-        B_d_logits = D_B(B, training=True)
-        A2B_d_logits = D_B(A2B, training=True)
+        A_d_logits, real_clean = D_A(A, training=True)
+        B2A_d_logits, fake_clean = D_A(B2A, training=True)
+        B_d_logits, real_noisy = D_B(B, training=True)
+        A2B_d_logits, fake_noisy = D_B(A2B, training=True)
 
         A_d_loss, B2A_d_loss = d_loss_fn(A_d_logits, B2A_d_logits)
         B_d_loss, A2B_d_loss = d_loss_fn(B_d_logits, A2B_d_logits)
         D_A_gp = gan.gradient_penalty(functools.partial(D_A, training=True), A, B2A, mode=args.gradient_penalty_mode)
         D_B_gp = gan.gradient_penalty(functools.partial(D_B, training=True), B, A2B, mode=args.gradient_penalty_mode)
 
+        """
+        ################################# 요런식?
+        temperature = 0.07
+        T = 0.9
+        alpha = 1
+
+        features_normalized = tf.math.l2_normalize(real_noisy, axis=1)  # batch_size, 65536
+        logits = tf.divide(
+            tf.linalg.matmul(features_normalized, tf.transpose(features_normalized)), temperature
+        )  # batch_size, batch_size -> 모든 경우의 수에 대한 cosine similarity 가 계산된 행렬
+
+        ## Hard Contrastive Regularization
+        y_true = tf.linalg.matmul(A, A, transpose_b=True, a_is_sparse=True, b_is_sparse=True)
+        # y_true (?) class 가
+
+        y_true = tf.where(y_true > T, tf.ones(tf.shape(y_true), dtype=tf.float32),tf.zeros(tf.shape(y_true), dtype=tf.float32))
+
+        contrastive_loss = alpha * tf.math.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y_true))
+        #########################################"""
+
         ######## bst loss
         clean_H = B - H(B, training=False)
         noisy_H = A + H(B, training=False)
-        fake_clean = D_A(clean_H, training=True)
-        fake_noisy = D_B(noisy_H, training=True)
+        fake_clean, _ = D_A(clean_H, training=True)
+        fake_noisy, _ = D_B(noisy_H, training=True)
 
         bst_loss = tf.reduce_mean(tf.math.square(fake_noisy)) + tf.reduce_mean(tf.math.square(fake_clean))
 
@@ -180,15 +205,16 @@ def train_D(A, B, A2B, B2A):
             'B_d_loss': B_d_loss + A2B_d_loss,
             'bst_loss': bst_loss,
             'D_A_gp': D_A_gp,
-            'D_B_gp': D_B_gp}
+            'D_B_gp': D_B_gp,
+            }
 
 
 @tf.function
 def train_H(A,B):
     with tf.GradientTape() as t:
         n_hat_i = H(B, training=True) # A가 noisy B가 clean noise
-        n_bar_i = B - G_B2A(B, training=True) # nosiy - clean noise
-        x_hat_j = G_A2B(A, training=True) # fake noisy
+        n_bar_i = B - G(B, z=z, training=True) # nosiy - clean noise
+        x_hat_j = G(A, training=True) # fake noisy
         n_tilda_j = H(x_hat_j, training=True) # fake noisy noise
 
         pseudo_loss = tf.reduce_mean(tf.abs(n_hat_i - n_bar_i))
@@ -217,8 +243,8 @@ def train_step(A, B):
 
 @tf.function
 def sample(A, B):
-    A2B = tf.clip_by_value(G_A2B(A, training=False), -1.0, 1.0)
-    B2A = tf.clip_by_value(G_B2A(B, training=False), -1.0, 1.0)
+    A2B = tf.clip_by_value(G(A, training=False), -1.0, 1.0)
+    B2A = tf.clip_by_value(G(B, z=z, training=False), -1.0, 1.0)
     H2A = B - H(B, training=False)
     print(tf.math.reduce_max(H2A))
     H2A = tf.clip_by_value(H2A,-1.0, 1.0)
@@ -236,8 +262,7 @@ def sample(A, B):
 ep_cnt = tf.Variable(initial_value=0, trainable=False, dtype=tf.int64)
 
 # checkpoint
-checkpoint = tl.Checkpoint(dict(G_A2B=G_A2B,
-                                G_B2A=G_B2A,
+checkpoint = tl.Checkpoint(dict(G=G,
                                 D_A=D_A,
                                 D_B=D_B,
                                 H = H,
