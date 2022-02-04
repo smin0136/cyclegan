@@ -93,7 +93,7 @@ H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.be
 
 
 #pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0202', '2')
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0202', '4')
 #py.mkdir(output_dir)
 
 
