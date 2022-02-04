@@ -113,14 +113,15 @@ z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        A2B = G(A, training=True)
-        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
-        B2A = G(B, z=z,training=True)
+        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
+        z1=z
+        A2B = G(A, z=z1,training=True)
+        B2A = G(B, training=True)
         #############################  B-B2A <-> H(B)
-        A2B2A = G(A2B,  z=z,training=True)
-        B2A2B = G(B2A, training=True)
-        A2A = G(A,  z=z,training=True)
-        B2B = G(B, training=True)
+        A2B2A = G(A2B, training=True)
+        B2A2B = G(B2A, z=z1, training=True)
+        #A2A = G(A,  training=True)
+        #B2B = G(B, z=z1,training=True)
 
         A2B_d_logits, _ = D_B(A2B, training=True)
         B2A_d_logits, _ = D_A(B2A, training=True)
@@ -129,17 +130,17 @@ def train_G(A, B):
         B2A_g_loss = g_loss_fn(B2A_d_logits)
         A2B2A_cycle_loss = cycle_loss_fn(A, A2B2A)
         B2A2B_cycle_loss = cycle_loss_fn(B, B2A2B)
-        A2A_id_loss = identity_loss_fn(A, A2A)
-        B2B_id_loss = identity_loss_fn(B, B2B)
+        #A2A_id_loss = identity_loss_fn(A, A2A)
+        #B2B_id_loss = identity_loss_fn(B, B2B)
 
         ### bypass loss
         clean_H = B - H(B, training=False)
         noisy_H = A + H(B, training=False)
-        y_hat_j = G(noisy_H,z=z, training=True)
+        y_hat_j = G(noisy_H, training=True)
 
         bypass_loss = tf.reduce_mean(tf.abs(B2A - clean_H)) + tf.reduce_mean(tf.abs(A - y_hat_j))
 
-        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss + bypass_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
+        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss + bypass_loss) * args.cycle_loss_weight # + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
 
     G_grad = t.gradient(G_loss, G.trainable_variables)
     G_optimizer.apply_gradients(zip(G_grad, G.trainable_variables))
@@ -148,9 +149,7 @@ def train_G(A, B):
                       'B2A_g_loss': B2A_g_loss,
                       'A2B2A_cycle_loss': A2B2A_cycle_loss,
                       'B2A2B_cycle_loss': B2A2B_cycle_loss,
-                      'bypass_loss': bypass_loss,
-                      'A2A_id_loss': A2A_id_loss,
-                      'B2B_id_loss': B2B_id_loss}
+                      'bypass_loss': bypass_loss}
 
 
 @tf.function
@@ -212,9 +211,11 @@ def train_D(A, B, A2B, B2A):
 @tf.function
 def train_H(A,B):
     with tf.GradientTape() as t:
+        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
+        z1 = z
         n_hat_i = H(B, training=True) # A가 noisy B가 clean noise
-        n_bar_i = B - G(B, z=z, training=True) # nosiy - clean noise
-        x_hat_j = G(A, training=True) # fake noisy
+        n_bar_i = B - G(B, training=True) # nosiy - clean noise
+        x_hat_j = G(A,  z=z1, training=True) # fake noisy
         n_tilda_j = H(x_hat_j, training=True) # fake noisy noise
 
         pseudo_loss = tf.reduce_mean(tf.abs(n_hat_i - n_bar_i))
@@ -243,8 +244,8 @@ def train_step(A, B):
 
 @tf.function
 def sample(A, B):
-    A2B = tf.clip_by_value(G(A, training=False), -1.0, 1.0)
-    B2A = tf.clip_by_value(G(B, z=z, training=False), -1.0, 1.0)
+    A2B = tf.clip_by_value(G(A, z=z, training=False), -1.0, 1.0)
+    B2A = tf.clip_by_value(G(B, training=False), -1.0, 1.0)
     H2A = B - H(B, training=False)
     print(tf.math.reduce_max(H2A))
     H2A = tf.clip_by_value(H2A,-1.0, 1.0)

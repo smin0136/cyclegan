@@ -95,8 +95,8 @@ z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        A2B = G(A, training=True)
-        B2A = G(B, z=z, training=True)
+        A2B = G(A, z=z, training=True)
+        B2A = G(B, training=True)
 
         #A2B2A = G_B2A(A2B, training=True)
         #B2A2B = G_A2B(B2A, training=True)
@@ -181,8 +181,8 @@ def train_step(A, B):
 
 @tf.function
 def sample(A, B):
-    A2B = tf.clip_by_value(G(A, training=False), -1.0, 1.0)
-    B2A = tf.clip_by_value(G(B, z=z, training=False), -1.0, 1.0)
+    A2B = tf.clip_by_value(G(A, z=z, training=False), -1.0, 1.0)
+    B2A = tf.clip_by_value(G(B, training=False), -1.0, 1.0)
     #A2B2A = G_B2A(A2B, training=False)
     #B2A2B = G_A2B(B2A, training=False)
     H2A = tf.clip_by_value(B - H(B, training=False), -1.0, 1.0)

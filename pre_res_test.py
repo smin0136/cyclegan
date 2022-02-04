@@ -68,12 +68,11 @@ def sample_B2A(B):
 """
 tf.random.set_seed(5)
 z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
-z = z*2 - 1
 
 
 @tf.function
 def sample_B2A(B):
-    B2A = tf.clip_by_value(G(B, z=z, training=False), -1.0, 1.0)
+    B2A = tf.clip_by_value(G(B, training=False), -1.0, 1.0)
     H2A = tf.clip_by_value(B - H(B, training=False), -1.0, 1.0)
     GnH = tf.clip_by_value(0.5*B2A + 0.5*H2A, -1.0, 1.0)
 
@@ -117,7 +116,7 @@ for B in B_dataset_test:
     tmp_A = A_dataset_test[i]
     for B_i, B2A_i, H2A_i, GnH_i in zip(B, B2A, H2A, GnH):
         B_i = B_i[:, :, 0]
-        B2A_i = B2A_i[: ,:, 0]
+        B2A_i = B2A_i[:, :, 0]
         H2A_i = H2A_i[:, :, 0]
         GnH_i = GnH_i[:, :, 0]
         tmp_A /= 255
