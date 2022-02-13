@@ -51,12 +51,23 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
+
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+
+A_img_paths.sort()
+B_img_paths.sort()
+
+A_img_paths = A_img_paths[50:]
+B_img_paths = B_img_paths[:50]
+
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
+
+len_dataset = 200
 
 A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'db_valid'), '*.png')
 B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'noisy'), '*.png')
@@ -94,7 +105,7 @@ H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.be
 
 
 #pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0123', '2')
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0118', '4')
 #py.mkdir(output_dir)
 
 

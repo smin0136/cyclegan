@@ -4,6 +4,7 @@ import imlib as im
 import numpy as np
 import pylib as py
 import tensorflow as tf
+import tensorflow_addons as tfa
 import tensorflow.keras as keras
 import tf2lib as tl
 import tf2gan as gan
@@ -25,7 +26,7 @@ py.arg('--load_size', type=int, default=256)  # load image to this size
 py.arg('--crop_size', type=int, default=256)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
 py.arg('--epochs', type=int, default=100)
-py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
+py.arg('--epoch_decay', type=int, default=25)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
 py.arg('--beta_1', type=float, default=0.5)
 py.arg('--adversarial_loss_mode', default='lsgan', choices=['gan', 'hinge_v1', 'hinge_v2', 'lsgan', 'wgan'])
@@ -53,6 +54,15 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+
+A_img_paths.sort()
+B_img_paths.sort()
+
+A_img_paths = A_img_paths[:50]
+B_img_paths = B_img_paths[:50]
+
+
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
@@ -70,7 +80,7 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 
 # ==============================================================================
 # =                                   models                                   =
-# ==============================================================================
+# ==============================================================================s
 
 G = module.Gen_with_adain()
 
@@ -84,21 +94,27 @@ cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
 mae_loss_fn = tf.losses.MeanAbsoluteError()
 
+len_dataset = 200
+
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
-H_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
+H_lr_scheduler = module.LinearDecay(0.002, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.beta_1)
 D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
 H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.beta_1)
 
+#H_opt = tfa.optimizers.RectifiedAdam(learning_rate=args.lr*10, beta_1=0.9, warmup_proportion=0.0, total_steps=int(len_dataset*args.epochs), min_lr=1e-7)
+#H_optimizer = tfa.optimizers.Lookahead(H_opt, sync_period=6, slow_step_size=0.5)
+
+
 
 #pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0202', '4')
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0210', '1')
 #py.mkdir(output_dir)
 
 
 ############## 만약 pre training 이 H 학습시킨거면 H추가해야함#####################################################
-tl.Checkpoint(dict(G=G, H=H), py.join(pre_output_dir, 'checkpoints')).restore()
+tl.Checkpoint(dict(G=G), py.join(pre_output_dir, 'checkpoints')).restore()
 
 
 
@@ -113,8 +129,9 @@ z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
-        z1=z
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-1
+        #z1=z
+        #z1 = tf.random.normal([1, 64], 0, 1, dtype=tf.float32)
         A2B = G(A, z=z1,training=True)
         B2A = G(B, training=True)
         #############################  B-B2A <-> H(B)
@@ -211,22 +228,23 @@ def train_D(A, B, A2B, B2A):
 @tf.function
 def train_H(A,B):
     with tf.GradientTape() as t:
-        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
-        z1 = z
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-1
+        #z1 = z
+        #z1 = tf.random.normal([1, 64], 0, 1, dtype=tf.float32)
+
         n_hat_i = H(B, training=True) # A가 noisy B가 clean noise
         n_bar_i = B - G(B, training=True) # nosiy - clean noise
         x_hat_j = G(A,  z=z1, training=True) # fake noisy
         n_tilda_j = H(x_hat_j, training=True) # fake noisy noise
 
         pseudo_loss = tf.reduce_mean(tf.abs(n_hat_i - n_bar_i))
-        noise_consistency = tf.reduce_mean(tf.abs(x_hat_j - A - n_tilda_j))
-        loss = pseudo_loss + noise_consistency
+        #noise_consistency = tf.reduce_mean(tf.abs(x_hat_j - A - n_tilda_j))
+        loss = pseudo_loss # + noise_consistency
 
     H_grad = t.gradient(loss, H.trainable_variables)
     H_optimizer.apply_gradients(zip(H_grad, H.trainable_variables))
 
-    return {'pseudo_loss': pseudo_loss,
-            'noise_consistency': noise_consistency}
+    return {'pseudo_loss': pseudo_loss}
 
 
 def train_step(A, B):
@@ -237,13 +255,19 @@ def train_step(A, B):
     B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
 
     D_loss_dict = train_D(A, B, A2B, B2A)
+
+    #H_loss_dict = train_H(A, B)
+    #H_loss_dict = train_H(A, B)
     H_loss_dict = train_H(A, B)
+
 
     return G_loss_dict, D_loss_dict, H_loss_dict
 
 
 @tf.function
 def sample(A, B):
+    z = tf.random.normal([1, 64], 0, 1, dtype=tf.float32)
+
     A2B = tf.clip_by_value(G(A, z=z, training=False), -1.0, 1.0)
     B2A = tf.clip_by_value(G(B, training=False), -1.0, 1.0)
     H2A = B - H(B, training=False)
@@ -311,7 +335,7 @@ with train_summary_writer.as_default():
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
 
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % 50 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue

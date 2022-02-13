@@ -15,7 +15,7 @@ import module
 # ==============================================================================
 from data import image_read
 
-py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/output/0202/2/')
+py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/output/0210/1/')
 py.arg('--batch_size', type=int, default=1)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
@@ -44,6 +44,12 @@ A_dataset_test = np.array(image_read(py.join('/home/Alexandrite/smin/cycle_git/d
 # model
 G = module.Gen_with_adain()
 H = module.Extractor()
+
+#G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+#G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+
+#H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
+
 
 # resotre
 tl.Checkpoint(dict(G=G, H=H), py.join(args.experiment_dir, 'checkpoints')).restore()
@@ -110,7 +116,7 @@ for B in B_dataset_test:
         im.imwrite(img, py.join(save_dir, "noise2clean_%d.jpg" % i ))
 
         tmp_A = (tmp_A + 1) * 0.5 * 255
-        B2A = B2A[0, :, : , 0]
+        B2A = B2A[0, :, :, 0]
         H2A = H2A[0, :, :, 0]
         GnH = GnH[0, :, :, 0]
         tmp_B2A = (B2A + 1) * 0.5 * 255

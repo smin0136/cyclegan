@@ -152,6 +152,7 @@ def Extractor(input_shape=(256, 256, 3),
     return keras.Model(inputs=inputs, outputs=h)
 """
 
+
 class Res_Block(keras.Model):
     def __init__(self, dim=64):
         super(Res_Block, self).__init__()
@@ -234,163 +235,29 @@ class ResnetGenerator(keras.Model):
 
         return x
 
-"""
-class ResnetGenerator_adain(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
-        super(ResnetGenerator_adain, self).__init__()
-        self.start_neuron = 3
-        self.initializer = 'truncated_normal'
-        self.dim = dim
-        self.n_downsamplings = n_downsamplings
-        self.n_blocks = n_blocks
-        self.AIN = AdaIN(tf.nn.leaky_relu)
+class Res_Block_adain(keras.Model):
+    def __init__(self, dim=64):
+        super(Res_Block_adain, self).__init__()
         self.n1 = tfa.layers.InstanceNormalization()
         self.n2 = tfa.layers.InstanceNormalization()
-        self.n3 = tfa.layers.InstanceNormalization()
+        self.initializer = 'truncated_normal'
+        self.dim = dim
+        self.AIN = AdaIN(tf.nn.leaky_relu)
 
-        self.cv1 = layers.Conv2D(dim, 7, padding='valid', use_bias=False)
-        self.cv2 = layers.Conv2D(dim*2, 3, strides=2, padding='same', use_bias=False)
-        self.cv3 = layers.Conv2D(dim*4, 3, strides=2, padding='same', use_bias=False)
+        self.h1 = layers.Conv2D(dim, 3, padding='valid', use_bias=False)
+        self.h2 = layers.Conv2D(dim, 3, padding='valid', use_bias=False)
 
-        self.res = []
-        for i in range(0, n_blocks):
-            self.res.append(Res_Block(dim*4))
+        self.d1_m = layers.Dense(self.dim, kernel_initializer=self.initializer)
+        self.d1_v = layers.Dense(self.dim, activation=tf.nn.relu, kernel_initializer=self.initializer)
 
-        #res1
-        self.h1 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h2 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        #res2
-        self.h3 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h4 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
+        self.d2_m = layers.Dense(self.dim, kernel_initializer=self.initializer)
+        self.d2_v = layers.Dense(self.dim, activation=tf.nn.relu, kernel_initializer=self.initializer)
 
-        self.h5 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h6 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h7 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h8 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h9 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h10 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h11 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h12 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h13 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h14 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h15 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h16 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        self.h17 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-        self.h18 = keras.layers.Conv2D(dim*4, 3, padding='valid', use_bias=False)
-
-        ##########
-
-
-        self.cv4 = layers.Conv2DTranspose(dim*2, 3, strides=2, padding='same', use_bias=False)
-        self.cv5 = layers.Conv2DTranspose(dim, 3, strides=2, padding='same', use_bias=False)
-        self.out = layers.Conv2D(output_channels, 7, padding='valid')
-
-        self.d1 = layers.Dense(self.dim, kernel_initializer=self.initializer)
-        self.d2 = layers.Dense(self.dim, kernel_initializer=self.initializer)
-        self.d3 = layers.Dense(self.dim, kernel_initializer=self.initializer)
-        self.d4 = layers.Dense(self.dim, kernel_initializer=self.initializer)
-
-
-        self.d5_m = layers.Dense(self.dim, kernel_initializer=self.initializer)
-        self.d5_v = layers.Dense(self.dim, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d6_m = layers.Dense(self.dim * 2, kernel_initializer=self.initializer)
-        self.d6_v = layers.Dense(self.dim * 2, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d7_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d7_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-
-        self.d8_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d8_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d9_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d9_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d10_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d10_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d11_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d11_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d12_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d12_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d13_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d13_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d14_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d14_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d15_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d15_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d16_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d16_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d17_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d17_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d18_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d18_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d19_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d19_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d20_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d20_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d21_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d21_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d22_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d22_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d23_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d23_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d24_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d24_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d25_m = layers.Dense(self.dim * 4, kernel_initializer=self.initializer)
-        self.d25_v = layers.Dense(self.dim * 4, activation=tf.nn.relu, kernel_initializer=self.initializer)
-
-
-        self.d26_m = layers.Dense(self.dim * 2, kernel_initializer=self.initializer)
-        self.d26_v = layers.Dense(self.dim * 2, activation=tf.nn.relu, kernel_initializer=self.initializer)
-        self.d27_m = layers.Dense(self.dim, kernel_initializer=self.initializer)
-        self.d27_v = layers.Dense(self.dim, activation=tf.nn.relu, kernel_initializer=self.initializer)
-
-    def __call__(self, inputs, z=None, training=True):
-        if z is not None:
-            l = self.d1(z)
-            l = self.d2(l)
-            l = self.d3(l)
-            latent = self.d4(l)
-
-        x = inputs
-        x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
-        x = self.cv1(x)
-
-        if z is not None:
-            x = self.AIN(x, self.d5_m(latent), self.d5_v(latent))
-        else:
-            x = self.AIN(x)
-
-        #x = self.n1(x)
-        #x = tf.nn.relu(x)
-        ##### d layers dimension 확인 필요 ///  residaul block 은 어떻게 처리??
-
-        x = self.cv2(x)
-        if z is not None:
-            x = self.AIN(x, self.d6_m(latent), self.d6_v(latent))
-        else:
-            x = self.AIN(x)
-        #x = self.n2(x)
-        #x = tf.nn.relu(x)
-
-
-        x = self.cv3(x)
-        if z is not None:
-            x = self.AIN(x, self.d7_m(latent), self.d7_v(latent))
-        else:
-            x = self.AIN(x)
-        #x = self.n3(x)
-        #x = tf.nn.relu(x)
-
-
-        ############### res
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
+    def __call__(self, inputs, latent=None, training=True):
+        x = tf.pad(inputs, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
         x = self.h1(x)
-        if z is not None:
-            x = self.AIN(x, self.d8_m(latent), self.d8_v(latent))
+        if latent is not None:
+            x = self.AIN(x, self.d1_m(latent), self.d1_v(latent))
         else:
             x = self.AIN(x)
         #x = self.n1(x, training=training)
@@ -398,197 +265,14 @@ class ResnetGenerator_adain(keras.Model):
 
         x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
         x = self.h2(x)
-        if z is not None:
-            x = self.AIN(x, self.d9_m(latent), self.d9_v(latent), act=False)
+        if latent is not None:
+            x = self.AIN(x, self.d2_m(latent), self.d2_v(latent), act=False)
         else:
             x = self.AIN(x, act=False)
         #x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 1
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h3(x)
-        if z is not None:
-            x = self.AIN(x, self.d10_m(latent), self.d10_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
+        out = layers.add([inputs, x])
 
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h4(x)
-        if z is not None:
-            x = self.AIN(x, self.d11_m(latent), self.d11_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 2
-
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h5(x)
-        if z is not None:
-            x = self.AIN(x, self.d12_m(latent), self.d12_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h6(x)
-        if z is not None:
-            x = self.AIN(x, self.d13_m(latent), self.d13_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 3
-
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h7(x)
-        if z is not None:
-            x = self.AIN(x, self.d14_m(latent), self.d14_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h8(x)
-        if z is not None:
-            x = self.AIN(x, self.d15_m(latent), self.d15_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 4
-
-
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h9(x)
-        if z is not None:
-            x = self.AIN(x, self.d16_m(latent), self.d16_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h10(x)
-        if z is not None:
-            x = self.AIN(x, self.d17_m(latent), self.d17_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 5
-        
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h11(x)
-        if z is not None:
-            x = self.AIN(x, self.d18_m(latent), self.d18_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h12(x)
-        if z is not None:
-            x = self.AIN(x, self.d19_m(latent), self.d19_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        ######## 6
-
-
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h13(x)
-        if z is not None:
-            x = self.AIN(x, self.d20_m(latent), self.d20_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h14(x)
-        if z is not None:
-            x = self.AIN(x, self.d21_m(latent), self.d21_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-        
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h15(x)
-        if z is not None:
-            x = self.AIN(x, self.d22_m(latent), self.d22_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h16(x)
-        if z is not None:
-            x = self.AIN(x, self.d23_m(latent), self.d23_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-
-        skip_x = x
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h17(x)
-        if z is not None:
-            x = self.AIN(x, self.d24_m(latent), self.d24_v(latent))
-        else:
-            x = self.AIN(x)
-        # x = self.n1(x, training=training)
-        # x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], mode='REFLECT')
-        x = self.h18(x)
-        if z is not None:
-            x = self.AIN(x, self.d25_m(latent), self.d25_v(latent), act=False)
-        else:
-            x = self.AIN(x, act=False)
-        # x = self.n2(x, training=training)
-        x = layers.add([skip_x, x])
-
-
-        ##################################
-        x = self.cv4(x)
-        if z is not None:
-            x = self.AIN(x, self.d26_m(latent), self.d26_v(latent))
-        else:
-            x = self.AIN(x)
-        #x = self.n4(x)
-        #x = tf.nn.relu(x)
-
-        x = self.cv5(x)
-        if z is not None:
-            x = self.AIN(x, self.d27_m(latent), self.d27_v(latent))
-        else:
-            x = self.AIN(x)
-        #x = self.n5(x)
-        #x = tf.nn.relu(x)
-
-        x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
-        x = self.out(x)
-        x = tf.tanh(x)
-
-        return x
-"""
-
+        return out
 
 class Gen_with_adain(keras.Model):
     def __init__(self, output_channels=3, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
@@ -666,8 +350,10 @@ class Gen_with_adain(keras.Model):
         # x = self.n3(x)
         # x = tf.nn.relu(x)
 
+
         for h1 in self.res:
             x = h1(x, training=training)
+
 
         x = self.cv4(x)
         if z is not None:
@@ -761,18 +447,18 @@ class ConvDiscriminator_cont(keras.Model):
         self.n2 = tfa.layers.InstanceNormalization()
         self.n3 = tfa.layers.InstanceNormalization()
 
-        self.cv1 = keras.layers.Conv2D(dim, 4, strides=2, padding='same')
+        self.cv1 = keras.layers.Conv2D(dim, 4, strides=2, padding='same') # 256 -> 128
         dim = min(dim * 2, self.dim * 8)
-        self.cv2 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False)
+        self.cv2 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False)  # 128 -> 64
         dim = min(dim * 2, self.dim * 8)
-        self.cv3 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False)
+        self.cv3 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False) # 64 -> 32
         dim = min(dim * 2, self.dim * 8)
         self.cv4 = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)
         self.out = keras.layers.Conv2D(1, 4, strides=1, padding='same')
 
-        self.h1 = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)
-        self.h2 = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)
-
+        #self.h1 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 16 16
+        #self.h2 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 4 4
+        #self.h3 = keras.layers.Conv2D(dim, 4, strides=1, padding='valid', use_bias=False) # 1 1 dim
         # h : shared features
         # Head_contrastive = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)(h) 32 -> 16
         # Head_contrastive = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)(Head_contrastive) 16 -> 8,8,ch
@@ -784,13 +470,16 @@ class ConvDiscriminator_cont(keras.Model):
         x = self.cv2(x)
         x = self.n1(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
+
+        h = x
+        #h = self.h1(x)
+        #h = self.h2(h)
+        #h = self.h3(h)  # batch_size, 1, 1, dim
+        #h = tf.squeeze(h)  # batch_size, dim
+
         x = self.cv3(x)
         x = self.n2(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
-
-        h = self.h1(x)
-        h = self.h2(h)
-
 
         x = self.cv4(x)
         x = self.n3(x, training=training)
@@ -826,6 +515,7 @@ class Extractor(keras.Model):
         x = self.out(x)
 
         return x
+
 
 # ==============================================================================
 # =                          learning rate scheduler                           =
