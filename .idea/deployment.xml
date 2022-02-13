@@ -7,6 +7,10 @@
           <mappings>
             <mapping deploy="/home/Alexandrite/smin/cycle_git" local="$PROJECT_DIR$" web="/" />
           </mappings>
+          <excludedPaths>
+            <excludedPath path="/home/Alexandrite/smin/cycle_git/data/output" />
+            <excludedPath path="/home/Alexandrite/smin/cycle_git/data/pre_output" />
+          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>

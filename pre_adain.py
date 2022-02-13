@@ -52,7 +52,24 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_clean'), '*.png')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+
+print(A_img_paths)
+print(B_img_paths)
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size,  shuffle=False, training=True, repeat=False)
+
+A_B = iter(A_B_dataset)
+
+"""
+for i in range(20):
+    A, B = next(A_B)
+    img = im.immerge(np.concatenate([A, B], axis=0), n_rows=2)
+    temp_dir = py.join(output_dir, 'sup_test')
+    py.mkdir(temp_dir)
+    im.imwrite(img, py.join(temp_dir, 'iter-%d.jpg' % i))
+
+exit()
+"""
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
@@ -95,7 +112,9 @@ z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        A2B = G(A, z=z, training=True)
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-1
+
+        A2B = G(A, z=z1, training=True)
         B2A = G(B, training=True)
 
         #A2B2A = G_B2A(A2B, training=True)
