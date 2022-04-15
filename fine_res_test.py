@@ -15,7 +15,7 @@ import module
 # ==============================================================================
 from data import image_read
 
-py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/output/0210/1/')
+py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/output/0414/2/')
 py.arg('--batch_size', type=int, default=1)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
@@ -23,36 +23,46 @@ args.__dict__.update(test_args.__dict__)
 
 
 # ==============================================================================
-# =                                    test                                    =
+# =                                    test                                    =s
 # ==============================================================================
 
 # data
-#A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'db_valid'), '*.png')
-B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'noisy'), '*.png')
+"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'clean_R4_8_val'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'noisy_R4_8_val'), '*.png')"""
 
-B_img_paths_test.sort()
 
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'brain', 'clean_R4_8_val'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'brain', 'noisy_R4_8_val'), '*.png')
 
 """
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee/singlecoil_val', 'clean_R4_8'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee/singlecoil_val', 'noisy_R4_8'), '*.png')
+A_img_paths_test = A_img_paths_test[-100:]
+B_img_paths_test = B_img_paths_test[-100:]
+"""
+
 A_dataset_test = data.make_dataset(A_img_paths_test, args.batch_size, args.load_size, args.crop_size,
-                                   training=False, drop_remainder=False, shuffle=False, repeat=1)"""
+                                   training=False, drop_remainder=False, shuffle=False, repeat=1)
 B_dataset_test = data.make_dataset(B_img_paths_test, args.batch_size, args.load_size, args.crop_size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
 
-A_dataset_test = np.array(image_read(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'db_valid')), dtype=np.float32)
-
 # model
+
+
 G = module.Gen_with_adain()
 H = module.Extractor()
 
-#G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-#G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+#G_A2B = module.ResnetGenerator()
+#G_B2A = module.ResnetGenerator()
 
-#H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
+#H = module.Extractor ()
 
 
 # resotre
+#tl.Checkpoint(dict(G_A2B=G_A2B,G_B2A=G_B2A, H=H), py.join(args.experiment_dir, 'checkpoints')).restore()
 tl.Checkpoint(dict(G=G, H=H), py.join(args.experiment_dir, 'checkpoints')).restore()
+
 
 """
 @tf.function
@@ -99,26 +109,32 @@ e_ssim_tot = 0.0
 e_psnr_result = []
 e_ssim_result = []
 
-save_dir = py.join(args.experiment_dir, 'samples_testing', 'B2A')
+in_psnr_tot = 0.0
+in_ssim_tot = 0.0
+in_psnr_result = []
+in_ssim_result = []
+
+save_dir = py.join(args.experiment_dir, 'samples_testing', '50')
 py.mkdir(save_dir)
 i = 0
-for B in B_dataset_test:
+for A, B in zip(A_dataset_test, B_dataset_test):
     B2A, H2A, GnH = sample_B2A(B)
-    tmp_A = A_dataset_test[i]
-    for B_i, B2A_i, H2A_i, GnH_i in zip(B, B2A, H2A, GnH):
+    for A_i, B_i, B2A_i, H2A_i, GnH_i in zip(A, B, B2A, H2A, GnH):
         B_i = B_i[:, :, 0]
         B2A_i = B2A_i[: ,:, 0]
         H2A_i = H2A_i[:, :, 0]
         GnH_i = GnH_i[:, :, 0]
-        tmp_A /= 255
-        tmp_A = tmp_A * 2 -1
-        img = np.concatenate([B_i.numpy(), B2A_i.numpy(), H2A_i.numpy(), GnH_i.numpy(), tmp_A], axis=1)
+        A_i = A_i[:, :, 0]
+        img = np.concatenate([B_i.numpy(), B2A_i.numpy(), H2A_i.numpy(), GnH_i.numpy(), A_i.numpy()], axis=1)
         im.imwrite(img, py.join(save_dir, "noise2clean_%d.jpg" % i ))
 
-        tmp_A = (tmp_A + 1) * 0.5 * 255
+        A = A[0, :, :, 0]
+        B = B[0, :, :, 0]
         B2A = B2A[0, :, :, 0]
         H2A = H2A[0, :, :, 0]
         GnH = GnH[0, :, :, 0]
+        tmp_A = (A + 1) * 0.5 * 255
+        tmp_B = (B + 1) * 0.5 * 255
         tmp_B2A = (B2A + 1) * 0.5 * 255
         tmp_H2A = (H2A + 1) * 0.5 * 255
         tmp_GnH = (GnH + 1) * 0.5 * 255
@@ -132,6 +148,7 @@ for B in B_dataset_test:
         im2 = np.array(tmp_B2A, np.float32)
         im3 = np.array(tmp_H2A, np.float32)
         im4 = np.array(tmp_GnH, np.float32)
+        im5 = np.array(tmp_B, np.float32)
         #img_psnr = psnr(im1, im2, max_val=255.0)
         #img_ssim = ssim(im1, im2, max_val=255.0)
         img_psnr = psnr(im1, im2,  data_range=255.0)
@@ -143,6 +160,10 @@ for B in B_dataset_test:
         e_img_psnr = psnr(im1, im4, data_range=255.0)
         e_img_ssim = ssim(im1, im4, data_range=255.0)
 
+        in_img_psnr = psnr(im1, im5, data_range=255.0)
+        in_img_ssim = ssim(im1, im5, data_range=255.0)
+
+
         psnr_tot += img_psnr
         ssim_tot += img_ssim
 
@@ -151,23 +172,32 @@ for B in B_dataset_test:
 
         e_psnr_tot += e_img_psnr
         e_ssim_tot += e_img_ssim
+
+        in_psnr_tot += in_img_psnr
+        in_ssim_tot += in_img_ssim
     i += 1
 
-psnr_result.append(psnr_tot / 100)
-ssim_result.append(ssim_tot / 100)
+len_dataset = 100
 
-h_psnr_result.append(h_psnr_tot / 100)
-h_ssim_result.append(h_ssim_tot / 100)
+psnr_result.append(psnr_tot / len_dataset)
+ssim_result.append(ssim_tot / len_dataset)
 
-e_psnr_result.append(e_psnr_tot / 100)
-e_ssim_result.append(e_ssim_tot / 100)
+h_psnr_result.append(h_psnr_tot / len_dataset)
+h_ssim_result.append(h_ssim_tot / len_dataset)
+
+e_psnr_result.append(e_psnr_tot / len_dataset)
+e_ssim_result.append(e_ssim_tot / len_dataset)
+
+in_psnr_result.append(in_psnr_tot / len_dataset)
+in_ssim_result.append(in_ssim_tot / len_dataset)
+
 
 
         #### psnr 계산
-#print("input brain PSNR: %f, SSIM %f" % (sum(input_psnr), sum(input_ssim)))
-print("result brain PSNR: %f, SSIM %f" % (sum(psnr_result), sum(ssim_result)))
-print("h result knee PSNR: %f, SSIM %f" % (sum(h_psnr_result), sum(h_ssim_result)))
-print("e result knee PSNR: %f, SSIM %f" % (sum(e_psnr_result), sum(e_ssim_result)))
+print("input PSNR: %f, SSIM %f" % (sum(in_psnr_result), sum(in_ssim_result)))
+print("result PSNR: %f, SSIM %f" % (sum(psnr_result), sum(ssim_result)))
+print("h result PSNR: %f, SSIM %f" % (sum(h_psnr_result), sum(h_ssim_result)))
+print("e result PSNR: %f, SSIM %f" % (sum(e_psnr_result), sum(e_ssim_result)))
 
 #print("psnr: ", img_psnr)
 #print("ssim: ", img_ssim)

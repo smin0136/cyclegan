@@ -55,6 +55,15 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+
+A_img_paths.sort()
+B_img_paths.sort()
+
+A_img_paths = A_img_paths[:50]
+B_img_paths = B_img_paths[50:]
+
+
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
@@ -89,6 +98,8 @@ identity_loss_fn = tf.losses.MeanAbsoluteError()
 mae_loss_fn = tf.losses.MeanAbsoluteError()
 contrastive_loss_fn = gan.SupervisedContrastiveLoss(args.temperature, args.batch_size)
 
+len_dataset = 200
+
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 H_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
@@ -98,7 +109,7 @@ H_optimizer = keras.optimizers.Adam(learning_rate=H_lr_scheduler, beta_1=args.be
 
 
 #pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0202', '4')
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0210', '1')
 #py.mkdir(output_dir)
 
 
@@ -118,8 +129,8 @@ z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
-        z1=z
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-1
+        #z1=z
         A2B = G(A, z=z1,training=True)
         B2A = G(B, training=True)
         #############################  B-B2A <-> H(B)
@@ -158,7 +169,7 @@ def train_G(A, B):
 
 
 @tf.function
-def train_D(A, B, A2B, B2A):
+def train_D(A, B, A2B, B2A, cnt):
     with tf.GradientTape() as t:
         A_d_logits, real_clean = D_A(A, training=True)
         B2A_d_logits, fake_clean = D_A(B2A, training=True)
@@ -169,29 +180,9 @@ def train_D(A, B, A2B, B2A):
         B_d_loss, A2B_d_loss = d_loss_fn(B_d_logits, A2B_d_logits)
         A_d_cl = contrastive_loss_fn(Head_A(real_clean), Head_A(fake_clean))
         B_d_cl = contrastive_loss_fn(Head_B(real_noisy), Head_B(fake_noisy))
-        sc_loss = cl_weight*(A_d_cl + B_d_cl)
+        sc_loss = args.cl_weight*(A_d_cl + B_d_cl)
         D_A_gp = gan.gradient_penalty(functools.partial(D_A, training=True), A, B2A, mode=args.gradient_penalty_mode)
         D_B_gp = gan.gradient_penalty(functools.partial(D_B, training=True), B, A2B, mode=args.gradient_penalty_mode)
-
-        """
-        ################################# 요런식?
-        temperature = 0.07
-        T = 0.9
-        alpha = 1
-
-        features_normalized = tf.math.l2_normalize(real_noisy, axis=1)  # batch_size, 65536
-        logits = tf.divide(
-            tf.linalg.matmul(features_normalized, tf.transpose(features_normalized)), temperature
-        )  # batch_size, batch_size -> 모든 경우의 수에 대한 cosine similarity 가 계산된 행렬
-
-        ## Hard Contrastive Regularization
-        y_true = tf.linalg.matmul(A, A, transpose_b=True, a_is_sparse=True, b_is_sparse=True)
-        # y_true (?) class 가
-
-        y_true = tf.where(y_true > T, tf.ones(tf.shape(y_true), dtype=tf.float32),tf.zeros(tf.shape(y_true), dtype=tf.float32))
-
-        contrastive_loss = alpha * tf.math.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y_true))
-        #########################################"""
 
         ######## bst loss
         clean_H = B - H(B, training=False)
@@ -201,7 +192,10 @@ def train_D(A, B, A2B, B2A):
 
         bst_loss = tf.reduce_mean(tf.math.square(fake_noisy)) + tf.reduce_mean(tf.math.square(fake_clean))
 
-        D_loss = (A_d_loss + B2A_d_loss) + (B_d_loss + A2B_d_loss) + (D_A_gp + D_B_gp) * args.gradient_penalty_weight + bst_loss + args.cl_weight*sc_loss 
+        cl_w = args.cl_weight / cnt
+        cnt += 1
+
+        D_loss = (A_d_loss + B2A_d_loss) + (B_d_loss + A2B_d_loss) + (D_A_gp + D_B_gp) * args.gradient_penalty_weight + bst_loss + cl_w*sc_loss
 
 
     D_grad = t.gradient(D_loss, D_A.trainable_variables + D_B.trainable_variables + Head_A.trainable_variables + Head_B.trainable_variables)
@@ -220,8 +214,8 @@ def train_D(A, B, A2B, B2A):
 @tf.function
 def train_H(A,B):
     with tf.GradientTape() as t:
-        #z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
-        z1 = z
+        z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-5
+        #z1 = z
         n_hat_i = H(B, training=True) # A가 noisy B가 clean noise
         n_bar_i = B - G(B, training=True) # nosiy - clean noise
         x_hat_j = G(A,  z=z1, training=True) # fake noisy
@@ -237,6 +231,7 @@ def train_H(A,B):
     return {'pseudo_loss': pseudo_loss,
             'noise_consistency': noise_consistency}
 
+cnt = 1
 
 def train_step(A, B):
     A2B, B2A, G_loss_dict = train_G(A, B)
@@ -245,7 +240,7 @@ def train_step(A, B):
     A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
     B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
 
-    D_loss_dict = train_D(A, B, A2B, B2A)
+    D_loss_dict = train_D(A, B, A2B, B2A, cnt)
     H_loss_dict = train_H(A, B)
 
     return G_loss_dict, D_loss_dict, H_loss_dict
@@ -320,7 +315,7 @@ with train_summary_writer.as_default():
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
 
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % 50 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue

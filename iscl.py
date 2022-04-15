@@ -51,45 +51,71 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
+"""
+#A_img_paths = py.glob(py.join(args.datasets_dir, 'knees', 'train_clean'), '*.png')
+#B_img_paths = py.glob(py.join(args.datasets_dir, 'knees', 'train_noisy'), '*.png')
+A_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_clean_30'), '*.png')
+B_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_noisy_30'), '*.png')
 
-A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
-B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
 
 A_img_paths.sort()
 B_img_paths.sort()
 
-A_img_paths = A_img_paths[50:]
-B_img_paths = B_img_paths[:50]
+print(A_img_paths)
+print(B_img_paths)
+
+A_img_paths = A_img_paths[:50]
+B_img_paths = B_img_paths[50:]
+"""
+
+"""
+A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'clean_R6_6'), '*.png')
+B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'noisy_R6_6'), '*.png')
+A_img_paths = A_img_paths[:50]
+B_img_paths = B_img_paths[50:]
+"""
+
+
+A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'clean_R4_8'), '*.png')
+B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val','noisy_R4_8'), '*.png')
+
+A_img_paths = A_img_paths[:100]
+B_img_paths = B_img_paths[100:200]
 
 
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
+"""
+A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_clean_30'), '*.png')
+B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_noisy_30'), '*.png')
+"""
+#A_img_paths_test = py.glob(py.join(args.datasets_dir, 'knees', 'val_clean'), '*.png')
+#B_img_paths_test = py.glob(py.join(args.datasets_dir, 'knees', 'val_noisy'), '*.png')
 
-len_dataset = 200
+"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'clean_R6_6_val'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'noisy_R6_6_val'), '*.png')
+"""
 
-A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'db_valid'), '*.png')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'noisy'), '*.png')
-
-
-B_img_paths_test.sort()
-
-
-
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val','clean_R4_8'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val','noisy_R4_8'), '*.png')
+A_img_paths_test = A_img_paths_test[-100:]
+B_img_paths_test = B_img_paths_test[-100:]
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
 # ==============================================================================
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator()
+G_B2A = module.ResnetGenerator()
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator()
+D_B = module.ConvDiscriminator()
 
-H = module.Extractor(input_shape=(args.crop_size, args.crop_size, 3))
+H = module.Extractor()
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
@@ -110,7 +136,7 @@ pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0118', '4')
 
 
 ############## 만약 pre training 이 H 학습시킨거면 H추가해야함#####################################################
-tl.Checkpoint(dict(G_A2B=G_A2B, G_B2A=G_B2A, H=H), py.join(pre_output_dir, 'checkpoints')).restore()
+#tl.Checkpoint(dict(G_A2B=G_A2B, G_B2A=G_B2A, H=H), py.join(pre_output_dir, 'checkpoints')).restore()
 
 
 # ==============================================================================

@@ -1,6 +1,11 @@
 import functools
 
 import imlib as im
+import cv2
+import os
+from PIL import Image
+import h5py
+
 import numpy as np
 import pylib as py
 import tensorflow as tf
@@ -50,20 +55,49 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
-A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
-B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+"""
+A_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_clean_30'), '*.png')
+B_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_noisy_30'), '*.png')
+#A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'half_clean'), '*.png')
+#B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'half_noisy'), '*.png')
+"""
+A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val', 'clean_R4_8'), '*.png')
+B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R4_8'), '*.png')
+
+A_img_paths = A_img_paths[:100]
+B_img_paths = B_img_paths[100:200]
+
+print(len(A_img_paths))
+print(len(B_img_paths))
+
+#A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
-A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'db_valid'), '*.png')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'noisy'), '*.png')
+"""
+A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_clean_30'), '*.png')
+B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_noisy_30'), '*.png')
+#A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'db_valid'), '*.png')
+#B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'noisy'), '*.png')
+"""
+"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','clean_R6_6'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R6_6'), '*.png')
 
+A_img_paths_test = A_img_paths_test[-480:]
+B_img_paths_test = B_img_paths_test[-480:]
+"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','clean_R4_8'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R4_8'), '*.png')
 
-B_img_paths_test.sort()
+A_img_paths_test = A_img_paths_test[-100:]
+B_img_paths_test = B_img_paths_test[-100:]
 
-
+print(len(A_img_paths_test))
+print(len(B_img_paths_test))
 
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
@@ -71,11 +105,11 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator()
+G_B2A = module.ResnetGenerator()
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator()
+D_B = module.ConvDiscriminator()
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
@@ -220,7 +254,7 @@ with train_summary_writer.as_default():
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
 
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % 200 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue

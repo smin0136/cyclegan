@@ -15,7 +15,7 @@ import module
 # ==============================================================================
 from data import image_read
 
-py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/pre_output/0210/2')
+py.arg('--experiment_dir', default='/home/Alexandrite/smin/cycle_git/data/pre_output/0331/6')
 py.arg('--batch_size', type=int, default=1)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
@@ -27,10 +27,10 @@ args.__dict__.update(test_args.__dict__)
 # ==============================================================================
 
 # data
-A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data', 'brain', 'db_valid'), '*.png')
-B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data', 'brain', 'noisy'), '*.png')
+#A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data', 'brain', 'val_clean'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/data', 'knees', 'val_noisy'), '*.png')
 
-A_img_paths_test.sort()
+#A_img_paths_test.sort()
 B_img_paths_test.sort()
 
 """
@@ -39,7 +39,9 @@ A_dataset_test = data.make_dataset(A_img_paths_test, args.batch_size, args.load_
 B_dataset_test = data.make_dataset(B_img_paths_test, 1, args.load_size, args.crop_size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
 
-A_dataset_test = np.array(image_read(py.join('/home/Alexandrite/smin/cycle_git/data', 'brain', 'db_valid')), dtype=np.float32)
+A_dataset_test = np.array(image_read(py.join('/home/Alexandrite/smin/cycle_git/data', 'knees', 'val_clean')), dtype=np.float32)
+
+print(B_img_paths_test)
 
 # model
 #G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
@@ -107,7 +109,7 @@ e_ssim_tot = 0.0
 e_psnr_result = []
 e_ssim_result = []
 
-save_dir = py.join(args.experiment_dir, 'samples_testing', 'B2A_knee')
+save_dir = py.join(args.experiment_dir, 'samples_testing', 'B2A_pre_knee')
 py.mkdir(save_dir)
 i = 0
 j =0

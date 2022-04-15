@@ -54,6 +54,23 @@ A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_clean'), '
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size,  shuffle=False, training=True, repeat=False)
 
+
+
+
+"""
+print(A_img_paths)
+print(B_img_paths)
+A_B = iter(A_B_dataset)
+for i in range(20):
+    A, B = next(A_B)
+    img = im.immerge(np.concatenate([A, B], axis=0), n_rows=2)
+    temp_dir = py.join(output_dir, 'sup_test')
+    py.mkdir(temp_dir)
+    im.imwrite(img, py.join(temp_dir, 'iter-%d.jpg' % i))
+
+exit()
+"""
+
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
@@ -67,8 +84,8 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator()
+G_B2A = module.ResnetGenerator()
 
 #D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
 #D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))

@@ -53,6 +53,14 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'db_train'), '*.png')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+
+A_img_paths.sort()
+B_img_paths.sort()
+
+A_img_paths = A_img_paths[:50]
+B_img_paths = B_img_paths[50:]
+
+
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
@@ -72,11 +80,11 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator()
+G_B2A = module.ResnetGenerator()
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator()
+D_B = module.ConvDiscriminator()
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
@@ -88,7 +96,7 @@ G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.be
 D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
 
 
-pre_output_dir = py.join(args.datasets_dir, 'pre_output', args.output_date, args.dir_num)
+pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0214', '2')
 #py.mkdir(output_dir)
 
 

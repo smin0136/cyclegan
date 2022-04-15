@@ -49,16 +49,54 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # ==============================================================================
 # =                                    data                                    =
 # ==============================================================================
+"""
+A_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'db_train'), '*.png')
+B_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_noisy'), '*.png')
+"""
 
-A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_clean'), '*.png')
-B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'train_noisy'), '*.png')
+A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'knee', 'clean_R4_8'), '*.png')
+B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'knee', 'noisy_R4_8'), '*.png')
+
+A_img_paths.sort()
+B_img_paths.sort()
+A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size,  shuffle=False, training=True, repeat=False)
+
+
+"""
+clean = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI/ours/knee', 'clean_R4_8')), dtype=np.float32)
+noisy = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI/ours/knee', 'noisy_R4_8')), dtype=np.float32)
+clean = clean / 255.0
+noisy = noisy / 255.0
+clean = clean * 2 -1
+noisy = noisy * 2 -1
+
+
+clean = data.image_division(data.image_augmentation(clean), patch_size=(256, 256))
+noisy = data.image_division(data.image_augmentation(noisy), patch_size=(256, 256))
+
+len_dataset = len(clean)
+A_B_dataset = tf.data.Dataset.from_tensor_slices((clean, noisy))  # If you don't have enough memory, you can use tf.data.Dataset.from_generator
+A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
+"""
+
+
+
+
+"""
+A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'brain', 'multicoil_val', 'clean_R6_6'), '*.png')
+B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'brain', 'multicoil_val','noisy_R6_6'), '*.png')
+
+A_img_paths = A_img_paths[:200]
+B_img_paths = B_img_paths[:200]
+#A_img_paths = A_img_paths[:50]
+#B_img_paths = B_img_paths[:50]
 
 print(A_img_paths)
 print(B_img_paths)
 
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size,  shuffle=False, training=True, repeat=False)
-
-A_B = iter(A_B_dataset)
+"""
+#A_B = iter(A_B_dataset)
 
 """
 for i in range(20):
@@ -73,10 +111,23 @@ exit()
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
+"""
+A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'db_valid'), '*.png')
+B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'noisy'), '*.png')
+"""
 
-A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'val_clean'), '*.png')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'val_noisy'), '*.png')
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'knee', 'clean_R4_8_val'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours', 'knee', 'noisy_R4_8_val'), '*.png')
 
+
+"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'brain', 'multicoil_val', 'clean_R4_8'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'brain', 'multicoil_val','noisy_R4_8'), '*.png')
+A_img_paths_test = A_img_paths_test[-100:]
+B_img_paths_test = B_img_paths_test[-100:]
+"""
+print(A_img_paths_test)
+print(B_img_paths_test)
 
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
@@ -262,7 +313,7 @@ with train_summary_writer.as_default():
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
 
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % 800 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue

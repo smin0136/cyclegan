@@ -178,7 +178,7 @@ class Res_Block(keras.Model):
 
 
 class ResnetGenerator(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
+    def __init__(self, output_channels=1, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
         super(ResnetGenerator, self).__init__()
         self.start_neuron = 3
         self.dim = dim
@@ -275,9 +275,9 @@ class Res_Block_adain(keras.Model):
         return out
 
 class Gen_with_adain(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
+    def __init__(self, output_channels=1, dim=64, n_downsamplings=2, n_blocks=9, norm='instance_norm'):
         super(Gen_with_adain, self).__init__()
-        self.start_neuron = 3
+        self.start_neuron = 1
         self.initializer = 'truncated_normal'
         self.dim = dim
         self.n_downsamplings = n_downsamplings
@@ -398,7 +398,7 @@ class AdaIN(keras.layers.Layer):
 
 
 class ConvDiscriminator(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_downsamplings=3, norm='instance_norm'):
+    def __init__(self, output_channels=1, dim=64, n_downsamplings=3, norm='instance_norm'):
         super(ConvDiscriminator, self).__init__()
         self.output_channel = output_channels
         self.dim = dim
@@ -423,7 +423,7 @@ class ConvDiscriminator(keras.Model):
         x = tf.nn.leaky_relu(x, alpha=0.2)
         x = self.cv2(x)
         x = self.n1(x, training=training)
-        x = tf.nn.leaky_relu(x, aplha=0.2)
+        x = tf.nn.leaky_relu(x, alpha=0.2)
         x = self.cv3(x)
         x = self.n2(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
@@ -436,7 +436,7 @@ class ConvDiscriminator(keras.Model):
 
 
 class ConvDiscriminator_cont(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_downsamplings=3, norm='instance_norm'):
+    def __init__(self, output_channels=1, dim=64, n_downsamplings=3, norm='instance_norm'):
         super(ConvDiscriminator_cont, self).__init__()
         self.output_channel = output_channels
         self.dim = dim
@@ -448,17 +448,18 @@ class ConvDiscriminator_cont(keras.Model):
         self.n3 = tfa.layers.InstanceNormalization()
 
         self.cv1 = keras.layers.Conv2D(dim, 4, strides=2, padding='same') # 256 -> 128
-        dim = min(dim * 2, self.dim * 8)
-        self.cv2 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False)  # 128 -> 64
-        dim = min(dim * 2, self.dim * 8)
-        self.cv3 = keras.layers.Conv2D(dim, 4, strides=2, padding='same', use_bias=False) # 64 -> 32
-        dim = min(dim * 2, self.dim * 8)
-        self.cv4 = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)
+        #dim = min(dim * 2, self.dim * 8)
+        self.cv2 = keras.layers.Conv2D(dim*2, 4, strides=2, padding='same', use_bias=False)  # 128 -> 64
+        #dim = min(dim * 2, self.dim * 8)
+        self.cv3 = keras.layers.Conv2D(dim*4, 4, strides=2, padding='same', use_bias=False) # 64 -> 32
+        #dim = min(dim * 2, self.dim * 8)
+        self.cv4 = keras.layers.Conv2D(dim*8, 4, strides=1, padding='same', use_bias=False)
         self.out = keras.layers.Conv2D(1, 4, strides=1, padding='same')
 
-        #self.h1 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 16 16
-        #self.h2 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 4 4
-        #self.h3 = keras.layers.Conv2D(dim, 4, strides=1, padding='valid', use_bias=False) # 1 1 dim
+        """
+        self.h1 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 16 16
+        self.h2 = keras.layers.Conv2D(dim, 4, strides=4, padding='same', use_bias=False) # 4 4
+        self.h3 = keras.layers.Conv2D(dim, 4, strides=1, padding='valid', use_bias=False) # 1 1 dim"""
         # h : shared features
         # Head_contrastive = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)(h) 32 -> 16
         # Head_contrastive = keras.layers.Conv2D(dim, 4, strides=1, padding='same', use_bias=False)(Head_contrastive) 16 -> 8,8,ch
@@ -471,38 +472,46 @@ class ConvDiscriminator_cont(keras.Model):
         x = self.n1(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
 
-        h = x
-        #h = self.h1(x)
-        #h = self.h2(h)
-        #h = self.h3(h)  # batch_size, 1, 1, dim
-        #h = tf.squeeze(h)  # batch_size, dim
-
+        """
+        h = self.h1(x)
+        h = self.h2(h)
+        h = self.h3(h)  # batch_size, 1, 1, dim
+        h = tf.squeeze(h)  # batch_size, dim
+        h = h[tf.newaxis, ...]
+        """
         x = self.cv3(x)
         x = self.n2(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
+
+        #h = x
 
         x = self.cv4(x)
         x = self.n3(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
         x = self.out(x)
 
-        return x, h
+        return x
+
 
 class Projection_head(keras.Model):
     def __init__(self, projection_size=64):
         super(Projection_head, self).__init__()
         self.fcn = []
+        #self.fcn.append(layers.Flatten())
         self.fcn.append(layers.Dense(projection_size*2, activation=tf.nn.leaky_relu))
         self.fcn.append(layers.Dense(projection_size, activation=None))
 
     def __call__(self, inputs, training=True):
         out = 0.0
+        out = inputs
+        print(out.shape)
         for l in self.fcn:
             out = l(out)
+            print(out.shape)
         return out
 
 class Extractor(keras.Model):
-    def __init__(self, output_channels=3, dim=64, n_blocks=3, norm='instance_norm'):
+    def __init__(self, output_channels=1, dim=64, n_blocks=3, norm='instance_norm'):
         super(Extractor, self).__init__()
         self.output_channels = output_channels
         self.dim = dim
