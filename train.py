@@ -9,6 +9,7 @@ import h5py
 import numpy as np
 import pylib as py
 import tensorflow as tf
+import tensorflow_addons as tfa
 import tensorflow.keras as keras
 import tf2lib as tl
 import tf2gan as gan
@@ -25,7 +26,7 @@ import module
 # ==============================================================================
 
 py.arg('--dataset', default='brain')
-py.arg('--datasets_dir', default='/home/Alexandrite/smin/cycle_git/data')
+py.arg('--datasets_dir', default='/home/Alexandrite/smin/cycle_git')
 py.arg('--load_size', type=int, default=256)  # load image to this size
 py.arg('--crop_size', type=int, default=256)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
@@ -55,49 +56,30 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
-"""
-A_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_clean_30'), '*.png')
-B_img_paths = py.glob(py.join(args.datasets_dir, 'brain', 'train_noisy_30'), '*.png')
-#A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'half_clean'), '*.png')
-#B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'half_noisy'), '*.png')
-"""
-A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val', 'clean_R4_8'), '*.png')
-B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R4_8'), '*.png')
+clean = np.array(data.image_read(py.join('/home/Alexandrite/smin/cycle_git/input/fastmri/ours/brain/brain', 'clean_R4_8')), dtype=np.float32)
+noisy = np.array(data.image_read(py.join('/home/Alexandrite/smin/cycle_git/input/fastmri/ours/brain/brain', 'noisy_R4_8')), dtype=np.float32)
 
-A_img_paths = A_img_paths[:100]
-B_img_paths = B_img_paths[100:200]
 
-print(len(A_img_paths))
-print(len(B_img_paths))
+clean = clean / 255.0
+noisy = noisy / 255.0
+clean = clean * 2 -1
+noisy = noisy * 2 -1
 
-#A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
 
-A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
+clean = clean[:50]
+noisy = noisy[50:]
 
-A2B_pool = data.ItemPool(args.pool_size)
-B2A_pool = data.ItemPool(args.pool_size)
+clean = data.image_division(data.image_augmentation(clean), patch_size=(256, 256))
+noisy = data.image_division(data.image_augmentation(noisy), patch_size=(256, 256))
 
-"""
-A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_clean_30'), '*.png')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'val_noisy_30'), '*.png')
-#A_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'db_valid'), '*.png')
-#B_img_paths_test = py.glob(py.join(args.datasets_dir, 'brain', 'noisy'), '*.png')
-"""
-"""
-A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','clean_R6_6'), '*.png')
-B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R6_6'), '*.png')
+len_dataset = len(clean)
+A_B_dataset = tf.data.Dataset.from_tensor_slices((clean, noisy))  # If you don't have enough memory, you can use tf.data.Dataset.from_generator
+A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
 
-A_img_paths_test = A_img_paths_test[-480:]
-B_img_paths_test = B_img_paths_test[-480:]
-"""
-A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','clean_R4_8'), '*.png')
-B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'multicoil_val','noisy_R4_8'), '*.png')
 
-A_img_paths_test = A_img_paths_test[-100:]
-B_img_paths_test = B_img_paths_test[-100:]
 
-print(len(A_img_paths_test))
-print(len(B_img_paths_test))
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/input/fastmri/ours/brain/brain', 'clean_R4_8_val'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/cycle_git/input/fastmri/ours/brain/brain', 'noisy_R4_8_val'), '*.png')
 
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
@@ -114,13 +96,17 @@ D_B = module.ConvDiscriminator()
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
-
+"""
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.beta_1)
 D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
+"""
 
-
+G_opt = tfa.optimizers.RectifiedAdam(learning_rate=args.lr, beta_1=0.9, warmup_proportion=0.0,total_steps=int(len_dataset * args.epochs), min_lr=1e-7)
+D_opt = tfa.optimizers.RectifiedAdam(learning_rate=args.lr, beta_1=0.9, warmup_proportion=0.0,total_steps=int(len_dataset * args.epochs), min_lr=1e-7)
+G_optimizer = tfa.optimizers.SWA(G_opt, start_averaging=int(len_dataset * args.epochs * 0.6),average_period=1)
+D_optimizer = tfa.optimizers.Lookahead(D_opt, sync_period=6, slow_step_size=0.5)
 # ==============================================================================
 # =                                 train step                                 =
 # ==============================================================================
@@ -185,10 +171,6 @@ def train_D(A, B, A2B, B2A):
 def train_step(A, B):
     A2B, B2A, G_loss_dict = train_G(A, B)
 
-    # cannot autograph `A2B_pool`
-    A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
-    B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
-
     D_loss_dict = train_D(A, B, A2B, B2A)
 
     return G_loss_dict, D_loss_dict
@@ -248,13 +230,8 @@ with train_summary_writer.as_default():
             G_loss_dict, D_loss_dict = train_step(A, B)
 
 
-            # # summary
-            tl.summary(G_loss_dict, step=G_optimizer.iterations, name='G_losses')
-            tl.summary(D_loss_dict, step=G_optimizer.iterations, name='D_losses')
-            tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
-
             # sample
-            if G_optimizer.iterations.numpy() % 200 == 0:
+            if G_optimizer.iterations.numpy() % 400 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue

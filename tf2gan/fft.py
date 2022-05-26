@@ -29,18 +29,28 @@ def tf_RF(image, mask):
     image = tf_complex(image)
     mask = tf_complex(mask)
 
-    freq_full = tf.signal.fft2d(image) ## 이거
-    freq_zero = tf.zeros_like(freq_full)
+    freq_full = tf.signal.fft2d(image)  ## 이거
+    freq_full = freq_full[..., tf.newaxis]
+    one = tf.image.rot90(tf.image.rot90(freq_full[0:128, 0:128, 0:1]))
+    two = tf.image.rot90(tf.image.rot90(freq_full[0:128, 128:256, 0:1]))
+    three = tf.image.rot90(tf.image.rot90(freq_full[128:256, 0:128, 0:1]))
+    four = tf.image.rot90(tf.image.rot90(freq_full[128:256, 128:256, 0:1]))
+
+    one_n = tf.concat([one[:,:,0],two[:,:,0]], axis=1)
+    two_n = tf.concat([three[:,:,0],four[:,:,0]], axis=1)
+
+    freq_temp = tf.concat([one_n, two_n], axis=0)
+
+    freq_zero = tf.zeros_like(freq_temp)
     condition = tf.cast(tf.math.real(mask)>0.9, tf.bool) ## 이거
 
-    freq_dest = tf.where(condition, freq_full, freq_zero, name='RfFf')
-
+    freq_dest = tf.where(condition, freq_temp, freq_zero, name='RfFf')
     #mask = mask[0]
     #freq_dest = freq_full * mask + 0.0
 
-    freq_dest = tf_channel(freq_dest)
+    #freq_dest = tf_channel(freq_dest)
 
-    return tf.identity(freq_dest)
+    return tf.identity(freq_dest), freq_temp
 
 def tf_FhRh(freq, mask):
     # shape b,2,h,w,1
@@ -67,7 +77,9 @@ def sampling_matrix(clean, mask):
     mask /= 255
     mask = tf.convert_to_tensor(mask)
     """
+
     clean = (clean + 1)*0.5
+    mask = mask[0]
     mask = mask[..., 0]
     mask_real = mask[tf.newaxis, ...]
     mask_imag = tf.zeros_like(mask)[tf.newaxis, ...]
@@ -83,7 +95,7 @@ def sampling_matrix(clean, mask):
     #mask_temp = tf_channel(mask)
     #clean_temp = tf_channel(clean_t)
 
-    Mf1 = tf_RF(clean_temp, mask_temp)
+    Mf1, freq = tf_RF(clean_temp, mask_temp)
     #print("Mf1", Mf1.shape)
     #Mf1 = tf_FhRh(Mf1, mask_temp)
     #print("Mf2", Mf1.shape)
@@ -91,4 +103,4 @@ def sampling_matrix(clean, mask):
     #tf.print(tf.math.reduce_max(Mf1))
     #print(Mf1[0].shape)
 
-    return Mf1[0]
+    return Mf1, freq

@@ -69,11 +69,11 @@ m_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'mask
 A_img_paths = A_img_paths[:50]
 B_img_paths = B_img_paths[50:]
 """
-
+"""
 clean = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'clean_R4_8')), dtype=np.float32)
 noisy = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'noisy_R4_8')), dtype=np.float32)
 mask = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'mask_R4_8')), dtype=np.float32)
-
+"""
 """
 clean = np.array(data.image_read(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'db_train')), dtype=np.float32)
 noisy = np.array(data.image_read(py.join('/home/Alexandrite/smin/cycle_git/data/brain', 'noisy')), dtype=np.float32)
@@ -84,7 +84,7 @@ for i in range(99):
 """
 #m_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'mask_R4_8'), '*png')
 
-
+"""
 clean = clean / 255.0
 noisy = noisy / 255.0
 clean = clean * 2 -1
@@ -104,7 +104,7 @@ b_mask = data.image_division(data.image_augmentation(b_mask), patch_size=(256, 2
 
 len_dataset = len(clean)
 A_B_dataset = tf.data.Dataset.from_tensor_slices((clean, noisy, a_mask, b_mask))  # If you don't have enough memory, you can use tf.data.Dataset.from_generator
-A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
+A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE).repeat()
 
 
 #A_img_paths = np.concatenate([A_img_paths, A_img_paths], axis=0)
@@ -112,21 +112,43 @@ A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=T
 
 #mask_zip = zip(a_mask, b_mask)
 
-
 """
-A_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'clean_R4_8'), '*.png')
-B_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'noisy_R4_8'), '*.png')
-m_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'mask_R4_8'), '*png')
 
-A_img_paths = A_img_paths[:100]
-A_mask = m_img_paths[:100]
-B_img_paths = B_img_paths[100:200]
-B_mask = m_img_paths[100:200]
-mask_zip = zip(A_mask, B_mask)
-"""
+#clean = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'clean_R4_8'), '*.png')
+#noisy = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'noisy_R4_8'), '*.png')
+
+clean = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'clean_R4_8')), dtype=np.float32)
+noisy = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'noisy_R4_8')), dtype=np.float32)
+mask = np.array(data.image_read(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'mask_R4_8')), dtype=np.float32)
+#m_img_paths = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'mask_R4_8'), '*png')
+
+clean = clean[:1500]
+#A_mask = m_img_paths[:100]
+noisy = noisy[1500:3000]
+#B_mask = m_img_paths[100:200]
+#mask_zip = zip(A_mask, B_mask)
+clean = clean / 255.0
+noisy = noisy / 255.0
+clean = clean * 2 -1
+noisy = noisy * 2 -1
+mask = mask /255.0
+
+
+a_mask = mask[:1500]
+b_mask = mask[1500:3000]
+
+clean = data.image_division(clean, patch_size=(320, 320))
+noisy = data.image_division(noisy, patch_size=(320, 320))
+a_mask = data.image_division(a_mask, patch_size=(320, 320))
+b_mask = data.image_division(b_mask, patch_size=(320, 320))
+
+len_dataset = len(clean)
+print(len(clean), len(noisy))
+A_B_dataset = tf.data.Dataset.from_tensor_slices((clean, noisy, a_mask, b_mask))  # If you don't have enough memory, you can use tf.data.Dataset.from_generator
+A_B_dataset = A_B_dataset.cache().shuffle(len(clean), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
 
 #A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
-#A_B_dataset = A_B_dataset.cache().repeat().shuffle(len(len_dataset), reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
+#A_B_dataset = A_B_dataset.cache().shuffle(len_dataset, reshuffle_each_iteration=True).batch(1).prefetch(tf.data.experimental.AUTOTUNE)
 
 #A2B_pool = data.ItemPool(args.pool_size)
 #B2A_pool = data.ItemPool(args.pool_size)
@@ -147,18 +169,18 @@ A_img_paths_test = A_img_paths_test[-100:]
 B_img_paths_test = B_img_paths_test[-100:]
 """
 
-
+"""
 A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'clean_R4_8_val'), '*.png')
 B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI/ours/brain', 'noisy_R4_8_val'), '*.png')
 
 #mask = np.array(image_read("/home/Alexandrite/smin/ISCL_MRI/data/mask/radial/mask_1/mask_10.png"), dtype=np.float32)
+"""
 
-"""
-A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val','clean_R6_6'), '*.png')
-B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val','noisy_R6_6'), '*.png')
-A_img_paths_test = A_img_paths_test[-500:]
-B_img_paths_test = B_img_paths_test[-500:]
-"""
+A_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'clean_R4_8'), '*.png')
+B_img_paths_test = py.glob(py.join('/home/Alexandrite/smin/FastMRI', 'knee', 'singlecoil_val', 'noisy_R4_8'), '*.png')
+A_img_paths_test = A_img_paths_test[-100:]
+B_img_paths_test = B_img_paths_test[-100:]
+
 
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, shuffle=False, training=False, repeat=True)
 
@@ -166,7 +188,7 @@ A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, 
 # =                                   models                                   =
 # ==============================================================================s
 
-G = module.Gen_with_adain_NB()
+G = module.Gen_with_adain(n_blocks=9)
 
 D_A = module.ConvDiscriminator()
 D_B = module.ConvDiscriminator()
@@ -216,16 +238,12 @@ pre_output_dir = py.join(args.datasets_dir, 'pre_output', '0331', '6')
 
 #tf.random.set_seed(5)
 z = tf.random.normal([1,64], 0, 1, dtype=tf.float32)
-
-
 #z = tf.ones([1,64])
 
 @tf.function
 def train_G(A, B, a_mask, b_mask, h_w):
     with tf.GradientTape() as t:
         z1 = z+tf.random.normal(tf.shape(z), mean=0.0, stddev=1.0, dtype=tf.float32)*1e-1
-
-
         A2B = G(A, z=z1,training=True)
         B2A = G(B, training=True)
         #############################  B-B2A <-> H(B)
@@ -250,16 +268,16 @@ def train_G(A, B, a_mask, b_mask, h_w):
         noisy_H = A + H(B, training=False)
         y_hat_j = G(noisy_H, training=True)
 
-        ft_A, _ = gan.sampling_matrix(A, a_mask)
-        ft_A2B, _ = gan.sampling_matrix(A2B2A, a_mask)
-        ft_B, _ = gan.sampling_matrix(B, b_mask)
-        ft_B2A, _ = gan.sampling_matrix(B2A2B, b_mask)
+        ft_A = gan.sampling_matrix(A, a_mask)
+        ft_A2B = gan.sampling_matrix(A2B2A, a_mask)
+        ft_B = gan.sampling_matrix(B, b_mask)
+        ft_B2A = gan.sampling_matrix(B2A2B, b_mask)
 
         bypass_loss = tf.reduce_mean(tf.abs(B2A - clean_H)) + tf.reduce_mean(tf.abs(A - y_hat_j))
 
         sampling_loss = tf.reduce_mean(tf.abs(ft_A - ft_A2B)) + tf.reduce_mean(tf.abs(ft_B - ft_B2A))
 
-        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + 0.1*sampling_loss + bypass_loss*h_w
+        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + bypass_loss*h_w + 0.1*sampling_loss
 
     G_grad = t.gradient(G_loss, G.trainable_variables)
     G_optimizer.apply_gradients(zip(G_grad, G.trainable_variables))
@@ -334,10 +352,12 @@ def train_H(A,B):
 
 def train_step(A, B,a_mask, b_mask, curr_epoch):
 
+
     if curr_epoch < args.epoch_decay:
-        a, b, G_loss_dict = train_G(A, B,a_mask,b_mask, 10)
+        a, b, G_loss_dict = train_G(A, B,a_mask,b_mask, 1)
     else:
-        a, b, G_loss_dict = train_G(A, B, a_mask, b_mask,10)
+        a, b, G_loss_dict = train_G(A, B, a_mask, b_mask,1)
+    #a, b, G_loss_dict = train_G(A, B, a_mask, b_mask)
 
     # cannot autograph `A2B_pool`
     #A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
@@ -345,30 +365,7 @@ def train_step(A, B,a_mask, b_mask, curr_epoch):
 
     D_loss_dict = train_D(A, B)
 
-    #H_loss_dict = train_H(A, B)
-    #H_loss_dict = train_H(A, B)
     H_loss_dict = train_H(A, B)
-
-
-
-    a= np.log(np.abs(a) + 1e-9)
-    b= np.log(np.abs(b) + 1e-9)
-
-    #a = (a - np.min(a)) / (np.max(a) - np.min(a))
-    #b = (b - np.min(b)) / (np.max(b) - np.min(b))
-    #b *= 255
-    #b *= 255
-    """
-    print(np.max(ft_A), np.min(ft_A2B2A))
-    temp = np.array((ft_A[0]+1)*0.5*255).astype(np.uint8)
-    im = Image.fromarray(temp)
-    im.save('/home/Alexandrite/smin/cycle_git/res/sampling_matrix_2.tif')
-    temp = np.array(a)
-    im = Image.fromarray(temp)
-    im.save('/home/Alexandrite/smin/cycle_git/res/sampling_matrix_1.tif')
-    temp = np.array(b)
-    im = Image.fromarray(temp)
-    im.save('/home/Alexandrite/smin/cycle_git/res/sampling_matrix_2.tif')"""
 
     return G_loss_dict, D_loss_dict, H_loss_dict
 
@@ -501,7 +498,7 @@ with train_summary_writer.as_default():
             tl.summary({'learning rate': G_opt.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
             """
             # sample
-            if G_optimizer.iterations.numpy() % 400 == 0:
+            if G_optimizer.iterations.numpy() % 1500 == 0:
                 A, B = next(test_iter)
                 if A is None or B is None :
                     continue
@@ -538,3 +535,4 @@ with train_summary_writer.as_default():
 
         # save checkpoint
         checkpoint.save(ep)
+
